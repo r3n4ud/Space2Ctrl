@@ -1,0 +1,12 @@
+[Unit]
+Description=Use the space key as another ctrl
+
+[Service]
+Type=simple
+ExecStart=@INSTALL_PREFIX@/bin/s2cctl start
+ExecStop=@INSTALL_PREFIX@/bin/s2cctl stop
+WorkingDirectory=%h
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

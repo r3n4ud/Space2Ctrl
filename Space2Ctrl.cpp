@@ -18,22 +18,21 @@
 
 */
 
-#include <X11/Xlibint.h>
-#include <X11/keysym.h>
-#include <X11/extensions/record.h>
-#include <X11/extensions/XTest.h>
+#include <chrono>
+#include <csignal>
 #include <iostream>
-#include <sys/time.h>
-#include <signal.h>
 
-using namespace std;
+#include <X11/Xlibint.h>
+#include <X11/extensions/XTest.h>
+#include <X11/extensions/record.h>
+#include <X11/keysym.h>
 
 struct CallbackClosure {
-  Display *ctrlDisplay;
-  Display *dataDisplay;
+  Display* ctrlDisplay;
+  Display* dataDisplay;
   int curX;
   int curY;
-  void *initialObject;
+  void* initialObject;
 };
 
 typedef union {
@@ -46,19 +45,18 @@ typedef union {
 } XRecordDatum;
 
 class Space2Ctrl {
-
-  string m_displayName;
+  std::string m_displayName;
   CallbackClosure userData;
-  std::pair<int,int> recVer;
-  XRecordRange *recRange;
+  std::pair<int, int> recVer;
+  XRecordRange* recRange;
   XRecordClientSpec recClientSpec;
   XRecordContext recContext;
 
-  void setupXTestExtension(){
+  void setupXTestExtension() {
     int ev, er, ma, mi;
     if (!XTestQueryExtension(userData.ctrlDisplay, &ev, &er, &ma, &mi)) {
-      cout << "%sThere is no XTest extension loaded to X server.\n" << endl;
-      throw exception();
+      std::cout << "There is no XTest extension loaded to X server." << std::endl;
+      throw std::exception();
     }
   }
 
@@ -67,17 +65,18 @@ class Space2Ctrl {
 
     // Record extension exists?
     if (!XRecordQueryVersion(userData.ctrlDisplay, &recVer.first, &recVer.second)) {
-      cout << "%sThere is no RECORD extension loaded to X server.\n"
-        "You must add following line:\n"
-        "   Load  \"record\"\n"
-        "to /etc/X11/xorg.conf, in section `Module'.%s" << endl;
-      throw exception();
+      std::cout << R"(There is no RECORD extension loaded to X server.
+You must add following line:
+   Load  \"record\"
+to /etc/X11/xorg.conf, in section `Module'.)"
+                << std::endl;
+      throw std::exception();
     }
 
-    recRange = XRecordAllocRange ();
+    recRange = XRecordAllocRange();
     if (!recRange) {
       // "Could not alloc record range object!\n";
-      throw exception();
+      throw std::exception();
     }
     recRange->device_events.first = KeyPress;
     recRange->device_events.last = ButtonRelease;
@@ -86,26 +85,20 @@ class Space2Ctrl {
     // Get context with our configuration
     recContext = XRecordCreateContext(userData.ctrlDisplay, 0, &recClientSpec, 1, &recRange, 1);
     if (!recContext) {
-      cout << "Could not create a record context!" << endl;
-      throw exception();
+      std::cout << "Could not create a record context!" << std::endl;
+      throw std::exception();
     }
   }
 
-  static int diff_ms(timeval t1, timeval t2) {
-    return ( ((t1.tv_sec - t2.tv_sec) * 1000000)
-             + (t1.tv_usec - t2.tv_usec) ) / 1000;
-  }
-
   // Called from Xserver when new event occurs.
-  static void eventCallback(XPointer priv, XRecordInterceptData *hook) {
-
+  static void eventCallback(XPointer priv, XRecordInterceptData* hook) {
     if (hook->category != XRecordFromServer) {
       XRecordFreeData(hook);
       return;
     }
 
-    CallbackClosure *userData = (CallbackClosure *) priv;
-    XRecordDatum *data = (XRecordDatum *) hook->data;
+    CallbackClosure* userData = (CallbackClosure*)priv;
+    XRecordDatum* data = (XRecordDatum*)hook->data;
     static bool space_down = false;
     static bool key_combo = false;
     static bool modifier_down = false;
@@ -114,71 +107,44 @@ class Space2Ctrl {
     unsigned char t = data->event.u.u.type;
     int c = data->event.u.u.detail;
 
-    // cout << "\nState:" << endl;
-    // if (space_down)
-    //   cout << "space_down = true" << endl;
-    // else
-    //   cout << "space_down = false" << endl;
-
-    // if (key_combo)
-    //   cout << "key_combo = true" << endl;
-    // else
-    //   cout << "key_combo = false" << endl;
-
-    // // if (modifier_down)
-    // //   cout << "modifier_down = true" << endl;
-    // // else
-    // //   cout << "modifier_down = false" << endl;
-    // cout << endl;
-
+    auto pressed_at = std::chrono::system_clock::now();
     switch (t) {
-    case KeyPress:
-      {
-        // cout << "KeyPress";
+      case KeyPress: {
         if (c == 65) {
-          space_down = true; // space pressed
-          gettimeofday(&startWait, NULL);
-          // cout << "    65" << endl;
+          space_down = true;
+          pressed_at = std::chrono::system_clock::now();
 
-        } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L))
-                    || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R)) ) {
-          // cout << "    Control_{L||R}" << endl;
+        } else if ((c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L)) ||
+                   (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R))) {
           // ctrl pressed
-          if (space_down) { // space ctrl sequence
+          if (space_down) {  // space ctrl sequence
             XTestFakeKeyEvent(userData->ctrlDisplay, 255, True, CurrentTime);
             XTestFakeKeyEvent(userData->ctrlDisplay, 255, False, CurrentTime);
           }
-        } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_L))
-                    || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R))
-                    || (c == 108)
-                    ) {
+        } else if ((c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_L)) ||
+                   (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R)) || (c == 108)) {
           // cout << "    Modifier" << endl;
           // TODO: Find a better way to get those modifiers!!!
           modifier_down = true;
 
-        } else { // another key pressed
-          // cout << "    Another" << endl;
+        } else {  // another key pressed
           if (space_down) {
             key_combo = true;
           } else {
             key_combo = false;
           }
-
         }
 
         break;
       }
-    case KeyRelease:
-      {
-        // cout << "KeyRelease";
+      case KeyRelease: {
         if (c == 65) {
-          // cout << "    65";
-          space_down = false; // space released
+          space_down = false;  // space released
 
           if (!key_combo && !modifier_down) {
-            // cout << "    (!key_combo && !modifier_down)";
-            gettimeofday(&endWait, NULL);
-            if ( diff_ms(endWait, startWait) < 600 ) {
+            const auto released_at = std::chrono::system_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(released_at - pressed_at) <
+                std::chrono::milliseconds(600)) {
               // if minimum timeout elapsed since space was pressed
               XTestFakeKeyEvent(userData->ctrlDisplay, 255, True, CurrentTime);
               XTestFakeKeyEvent(userData->ctrlDisplay, 255, False, CurrentTime);
@@ -186,26 +152,19 @@ class Space2Ctrl {
           }
           key_combo = false;
           // cout << endl;
-        } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L))
-                    || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R)) ) {
-          // cout << "    Control_{L||R}" << endl;
+        } else if ((c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L)) ||
+                   (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R))) {
           // ctrl release
-          if (space_down)
-            key_combo = true;
-        } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_L))
-                    || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R))
-                    || (c == 108)
-                    ) {
-          // cout << "    Modifier" << endl;
+          if (space_down) key_combo = true;
+        } else if ((c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_L)) ||
+                   (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R)) || (c == 108)) {
           // TODO: Find a better way to get those modifiers!!!
           modifier_down = false;
         }
 
         break;
       }
-    case ButtonPress:
-      {
-
+      case ButtonPress: {
         if (space_down) {
           key_combo = true;
         } else {
@@ -225,12 +184,12 @@ public:
     stop();
   }
 
-  bool connect(string displayName) {
+  bool connect(std::string displayName) {
     m_displayName = displayName;
-    if (NULL == (userData.ctrlDisplay = XOpenDisplay(m_displayName.c_str())) ) {
+    if (NULL == (userData.ctrlDisplay = XOpenDisplay(m_displayName.c_str()))) {
       return false;
     }
-    if (NULL == (userData.dataDisplay = XOpenDisplay(m_displayName.c_str())) ) {
+    if (NULL == (userData.dataDisplay = XOpenDisplay(m_displayName.c_str()))) {
       XCloseDisplay(userData.ctrlDisplay);
       userData.ctrlDisplay = NULL;
       return false;
@@ -238,7 +197,7 @@ public:
 
     // You may want to set custom X error handler here
 
-    userData.initialObject = (void *) this;
+    userData.initialObject = (void*)this;
     setupXTestExtension();
     setupRecordExtension();
 
@@ -256,39 +215,40 @@ public:
     XTestFakeKeyEvent(userData.ctrlDisplay, 255, False, CurrentTime);
 
     if (!XRecordEnableContext(userData.dataDisplay, recContext, eventCallback,
-                              (XPointer) &userData)) {
-      throw exception();
+                              (XPointer)&userData)) {
+      throw std::exception();
     }
   }
 
   void stop() {
-    if (!XRecordDisableContext (userData.ctrlDisplay, recContext)) {
-      throw exception();
+    if (!XRecordDisableContext(userData.ctrlDisplay, recContext)) {
+      throw std::exception();
     }
   }
-
 };
 
 Space2Ctrl* space2ctrl;
 
 void stop(int param) {
   delete space2ctrl;
-  if(param == SIGTERM)
-    cout << "-- Terminating Space2Ctrl --" << endl;
+  if (param == SIGTERM) std::cout << "-- Terminating Space2Ctrl --" << std::endl;
   exit(1);
 }
 
 int main() {
-  cout << "-- Starting Space2Ctrl --" << endl;
+  std::cout << "-- Starting Space2Ctrl --" << std::endl;
   space2ctrl = new Space2Ctrl();
 
   void (*prev_fn)(int);
 
-  prev_fn = signal (SIGTERM, stop);
-  if (prev_fn==SIG_IGN) signal (SIGTERM,SIG_IGN);
+  prev_fn = signal(SIGTERM, stop);
+  if (prev_fn == SIG_IGN) signal(SIGTERM, SIG_IGN);
 
-  if (space2ctrl->connect(":0")) {
+  if (space2ctrl->connect(":1")) {
     space2ctrl->start();
+  } else {
+    std::cout << "-- Error: Could not connect to display. Not started --" << std::endl;
   }
+
   return 0;
 }

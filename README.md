@@ -19,8 +19,9 @@ e.g.:
 
 ## Install:
 ```bash
-make
-sudo make install
+cmake -S. -Bbuild
+cmake --build build
+cmake --install build --prefix ~/.local
 ```
 
 ## Usage:

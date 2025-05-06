@@ -1,4 +1,5 @@
-# this is a comment
+build
+.cache
 s2c
 .#*
 xmodmap.orig

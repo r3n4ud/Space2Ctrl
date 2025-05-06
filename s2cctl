@@ -1,16 +1,22 @@
-#! /bin/sh
+#!/usr/bin/env bash
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 start() {
 	origmap=$(xmodmap -pke | grep -E "^keycode[[:blank:]]*?65")
 	#newmap=$(echo ${origmap} | perl -pe "s/65[[:blank:]]*?=[[:blank:]]*?space/65  = Control_L/")
 	newmap=$(echo ${origmap} | perl -pe "s/ space/ Control_L/g")
 
 	xmodmap -e "$newmap"
-	xmodmap -e "keycode 255 = space VoidSymbol VoidSymbol VoidSymbol VoidSymbol"
-	nohup s2c >> ~/.Space2Ctrl.log 2>&1 &
+	xmodmap -e "keycode 255 = space NoSymbol space nobreakspace underscore U202F space space space nobreakspace underscore U202F"
+	# space VoidSymbol VoidSymbol VoidSymbol VoidSymbol
+	echo "Launching $SCRIPT_DIR/s2c"
+	nohup $SCRIPT_DIR/s2c >> ~/.s2c.log 2>&1 &
 	sleep 1 # Don't ask me why but we need to wait more than one second else the ctrl modifier is
-		# reinitialized to XK_Control_L XK_Control_R as soon as keycode 65 is pressed!
+	echo $! > $XDG_RUNTIME_DIR/s2c.pid
+	echo "PID file $XDG_RUNTIME_DIR/s2c.pid"
+	# reinitialized to XK_Control_L XK_Control_R as soon as keycode 65 is pressed!
 	`xmodmap -e "add control = Control_L Control_R"`
-	exit 0
+	#exit 0
 }
 
 stop() {
@@ -21,7 +27,7 @@ stop() {
 	xmodmap -e "clear control"
 	xmodmap -e "add control = Control_L"
 	xmodmap -e "add control = Control_R"
-	kill -s TERM `pgrep s2c` 2>&1
+	kill -s TERM $(cat $XDG_RUNTIME_DIR/s2c.pid) 2>&1
 }
 
 case $1 in
@@ -29,7 +35,7 @@ case $1 in
 		echo "Starting Space2Ctrl"
 		start;;
 	stop)
-		echo "Stoping Space2Ctrl"
+		echo "Stopping Space2Ctrl"
 		stop;;
 	*)
 		echo "Please pass start or stop";;

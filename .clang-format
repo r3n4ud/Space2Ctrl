@@ -1,0 +1,10 @@
+---
+Language:        Cpp
+BasedOnStyle:    Google
+ColumnLimit:     100
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+DerivePointerAlignment: false
+IncludeBlocks:   Preserve
+Standard:        Cpp11
+TabWidth:        4
+...
