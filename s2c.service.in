@@ -1,5 +1,6 @@
 [Unit]
 Description=Use the space key as another ctrl
+After=graphical-session.target
 
 [Service]
 Type=simple

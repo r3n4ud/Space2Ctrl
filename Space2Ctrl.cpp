@@ -236,7 +236,10 @@ void stop(int param) {
 }
 
 int main() {
-  std::cout << "-- Starting Space2Ctrl --" << std::endl;
+  char* var_value;
+  std::string display_env = (var_value = std::getenv("DISPLAY")) ? std::string(var_value) : ":0";
+  std::cout << "-- Starting Space2Ctrl using display " << display_env << " --\n";
+
   space2ctrl = new Space2Ctrl();
 
   void (*prev_fn)(int);
