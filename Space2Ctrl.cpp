@@ -247,7 +247,7 @@ int main() {
   prev_fn = signal(SIGTERM, stop);
   if (prev_fn == SIG_IGN) signal(SIGTERM, SIG_IGN);
 
-  if (space2ctrl->connect(":1")) {
+  if (space2ctrl->connect(display_env)) {
     space2ctrl->start();
   } else {
     std::cout << "-- Error: Could not connect to display. Not started --" << std::endl;
